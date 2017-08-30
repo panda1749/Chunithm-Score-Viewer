@@ -45,6 +45,14 @@ var difIdList = {
     'worldsend':4
 };
 
+var difList = {
+    0:'basic',
+    1:'advanced',
+    2:'expert',
+    3:'master',
+    4:'worldsend'
+};
+
 var genreList = {
     99:'全ジャンル',
     0:'POPS & ANIME',
@@ -55,6 +63,32 @@ var genreList = {
     7:'イロドリミドリ',
     8:'言ノ葉Project',
     5:'ORIGINAL',
+};
+
+var fcajList = {
+	0:'',
+	1:'FC',
+	2:'AJ',
+};
+
+var rankList = {
+	0:'D',
+	1:'C',
+	2:'B',
+	3:'BB',
+	4:'BBB',
+	5:'A',
+	6:'AA',
+	7:'AAA',
+	8:'S',
+	9:'SS',
+	10:'SSS',
+};
+
+var chainList = {
+	0:'',
+	1:'FullChain2',
+	2:'FullChain',
 };
 
 var clearView = function(){
@@ -230,7 +264,8 @@ var scrape_musicDetail = function(data,musicId,genreId){
 //<--- detail
 
 var exportCSV = function(detailList){
-	var header = ["id","title","artist","genre","dif","score","clear","fcaj","rank","chain","playCount","date"/*,"img"*/];
+	var header = ["id","title","artist","genreId","genre","difId","dif","score","clear",
+		"fcajId","fcaj","rankId","rank","chainId","chain","playCount","date"/*,"img"*/];
 	var lines = ['"'+header.join('","')+'"'];
 	$.each(detailList,function(id,detail){
 		$.each(detail.dif,function(dif,difDetail){
@@ -239,12 +274,17 @@ var exportCSV = function(detailList){
 				detail.title.replace(/"/g, '""'),
 				detail.artist.replace(/"/g, '""'),
 				detail.genre,
+				genreList[detail.genre],
 				dif,
+				difList[dif],
 				difDetail.score,
 				difDetail.clear,
 				difDetail.fcaj,
+				fcajList[difDetail.fcaj],
 				difDetail.rank,
+				rankList[difDetail.rank],
 				difDetail.chain,
+				chainList[difDetail.chain],
 				difDetail.playCount,
 				difDetail.date,
 				//detail.imgUrl,
