@@ -1,4 +1,5 @@
-/**
+(function(){
+	/**
  * @param {string} url 
  * @param {Object} data 
  * @return {Deferred}
@@ -325,3 +326,4 @@ var exec = function(){
 };
 
 exec();
+})();
