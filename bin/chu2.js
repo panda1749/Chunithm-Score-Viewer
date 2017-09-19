@@ -487,6 +487,7 @@ let export_post = (v,url)=>{
  * @param {object} v 
  */
 let export_window = v=>{
+    console.log(v);
     window.open('about:blank').document.body.innerHTML = `
     <pre><code>
         ${JSON.stringify(v,null,'    ')}
