@@ -56,6 +56,10 @@ v.replace(/[！-～]/g,tmpStr=>String.fromCharCode(tmpStr.charCodeAt(0) - 0xFEE0
 .replace(/”/g,"\"").replace(/’/g,"'").replace(/‘/g,"`")
 .replace(/￥/g,"\\").replace(/　/g," ").replace(/〜/g,"~");
 
+p.zeroFill = (v,len)=>String(v).padStart(len,'0');
+p.dateFormat = date=>`${p.zeroFill(date.getMonth()+1,2)}/${p.zeroFill(date.getDate(),2)}`+
+  ` ${p.zeroFill(date.getHours(),2)}:${p.zeroFill(date.getMinutes(),2)}`;
+
 p.getKey = (list,val)=>{
     let key;
     $.each(list,(_key,_val)=>val==_val&&(key=_key));
@@ -381,7 +385,7 @@ let fullRead = (ajax,view,d)=>{
     ajax.clear();
     d.musicList.forEach(v=>{
         ajax.add(MUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
-            view.info(`[${('00'+v.id).slice(-3)}] ${v.title}`);
+            view.info(`[${p.zeroFill(v.id,4)}] ${v.title}`);
             return scrape_musicDetail(html,v.id,v.genre);
         });
     });
@@ -427,7 +431,7 @@ let differencialRead = (ajax,view,d)=>{
 
     newPlayMusicList_NM.forEach(v=>{
         ajax.add(MUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
-            view.info(`[${('00'+v.id).slice(-3)}] ${v.title}`);
+            view.info(`[${p.zeroFill(v.id,4)}] ${v.title}`);
             return scrape_musicDetail(html,v.id,v.genre);
         });
     });
@@ -558,13 +562,7 @@ void ajax.add(USERINFO_URL,null,v=>{
     }else{
         /** @type {Date} */
         let cashDate = new Date(cash.opt.date);
-        view.info('キャッシュ：あり [' 
-            + (cashDate.getMonth()+1) + '/' 
-            + cashDate.getDay() + ' '
-            + cashDate.getHours() + ':'
-            + cashDate.getMinutes()
-            + ']'
-        );
+        view.info(`キャッシュ：あり [${p.dateFormat(cashDate)}]`);
 
         if(Date.parse(fastLogDate) < cashDate.getTime()){
             allReadMode = false;
