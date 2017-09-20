@@ -1,6 +1,6 @@
 /**
  * @fileoverview チュウニズムSTARのデータ抜出すマン
- *     window.POSTURL にアドレスが入っていればそこに送りつける｡
+ *     window._EXPORTURL にアドレスが入っていればそこに送りつける｡
  *     localStorageにデータを保存して､
  *     前回読込時以降のプレイ履歴が全てあれば差分のみ読込む｡
  * @author panda (twitter:_panda)
@@ -472,10 +472,10 @@ let cashAndExport = (ajax,view,d)=>{
     view.info('Complete!!');
     p.setCash(d.friendSearch.friendCode,d);
     
-    if(p.isNull(window.POSTURL)){
+    if(p.isNull(window._EXPORTURL)){
         export_window(d);
     }else{
-        export_post(d,window.POSTURL);
+        export_post(d,window._EXPORTURL);
     }
 }
 
