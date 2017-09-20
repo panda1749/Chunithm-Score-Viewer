@@ -396,7 +396,7 @@ let fullRead = (ajax,view,d)=>{
         });
         return ajax.send(v=>d.WEMusicDetailList=v);
     })
-    .then(()=>cashAndExport(d,view));
+    .then(()=>cashAndExport(ajax,view,d));
 };
 
 //差分読込
@@ -460,18 +460,18 @@ let differencialRead = (ajax,view,d)=>{
             });
         });
     })
-    .then(()=>cashAndExport(d,v));
+    .then(()=>cashAndExport(ajax,view,d));
 };
 
-let cashAndExport = (v,view)=>{
-    v.opt.date = Date.now();
+let cashAndExport = (ajax,view,d)=>{
+    d.opt.date = Date.now();
     view.info('Complete!!');
-    p.setCash(v.friendSearch.friendCode,v);
+    p.setCash(d.friendSearch.friendCode,d);
     
     if(p.isNull(window.POSTURL)){
-        export_window(v);
+        export_window(d);
     }else{
-        export_post(v,window.POSTURL);
+        export_post(d,window.POSTURL);
     }
 }
 
@@ -479,9 +479,9 @@ let cashAndExport = (v,view)=>{
  * POSTで送りつける
  * @param {object} v 
  */
-let export_post = (v,url)=>{
+let export_post = (d,url)=>{
     $('<FORM />',{action:url,method:'post',target:'_blank'})
-    .append($('<INPUT />', {type:'hidden',name:'data',value:JSON.stringify(v)}))
+    .append($('<INPUT />', {type:'hidden',name:'data',value:JSON.stringify(d)}))
     .appendTo(document.body)
     .submit().remove();
 };
@@ -490,11 +490,11 @@ let export_post = (v,url)=>{
  * 新しいタブに表示
  * @param {object} v 
  */
-let export_window = v=>{
-    console.log(v);
+let export_window = d=>{
+    console.log(d);
     window.open('about:blank').document.body.innerHTML = `
     <pre><code>
-        ${JSON.stringify(v,null,'    ')}
+        ${JSON.stringify(d,null,'    ')}
     </code></pre>
     `;
 };
