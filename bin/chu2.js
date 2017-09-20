@@ -1,6 +1,8 @@
 /**
  * @fileoverview チュウニズムSTARのデータ抜出すマン
- *     window.POSTURL にアドレスが入っていればそこに送りつける
+ *     window.POSTURL にアドレスが入っていればそこに送りつける｡
+ *     localStorageにデータを保存して､
+ *     前回読込時以降のプレイ履歴が全てあれば差分のみ読込む｡
  * @author panda (twitter:_panda)
  * @version 0.1
  */
@@ -56,9 +58,7 @@ v.replace(/[！-～]/g,tmpStr=>String.fromCharCode(tmpStr.charCodeAt(0) - 0xFEE0
 
 p.getKey = (list,val)=>{
     let key;
-    $.each(list,(_key,_val)=>{
-        if(val == _val) key = _key;
-    });
+    $.each(list,(_key,_val)=>val==_val&&(key=_key));
     return key;
 };
 
@@ -396,7 +396,7 @@ let fullRead = (ajax,view,d)=>{
         });
         return ajax.send(v=>d.WEMusicDetailList=v);
     })
-    .then(()=>cashAndExport(d));
+    .then(()=>cashAndExport(d,view));
 };
 
 //差分読込
@@ -415,13 +415,15 @@ let differencialRead = (ajax,view,d)=>{
     newPlayTitle_NM = Array.from(new Set(newPlayTitle_NM));
     newPlayTitle_WE = Array.from(new Set(newPlayTitle_WE));
 
-    //titleからidへ
     let newPlayMusicList_NM = newPlayTitle_NM.map(
         title=>d.musicList.find(v=>v.title == title)
     );
     let newPlayMusicList_WE = newPlayTitle_WE.map(
         title=>d.WEMusicList.find(v=>v.title == title)
     );
+
+    let newPlayCount = newPlayMusicList_NM.length+newPlayMusicList_WE.length;
+    view.info(newPlayCount==0?'更新なし':`${newPlayCount}曲更新`);
 
     newPlayMusicList_NM.forEach(v=>{
         ajax.add(MUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
@@ -458,12 +460,14 @@ let differencialRead = (ajax,view,d)=>{
             });
         });
     })
-    .then(()=>cashAndExport(d));
+    .then(()=>cashAndExport(d,v));
 };
 
-let cashAndExport = v=>{
+let cashAndExport = (v,view)=>{
     v.opt.date = Date.now();
+    view.info('Complete!!');
     p.setCash(v.friendSearch.friendCode,v);
+    
     if(p.isNull(window.POSTURL)){
         export_window(v);
     }else{
