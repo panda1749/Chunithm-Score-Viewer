@@ -1,77 +1,81 @@
 /**
  * @fileoverview チュウニズムSTARのデータ抜出すマン
- *     window._EXPORTURL にアドレスが入っていればそこに送りつける｡
- *     localStorageにデータを保存して､
- *     前回読込時以降のプレイ履歴が全てあれば差分のみ読込む｡
+ *     window._EXPORT が関数ならデータを渡す､URLならPOST､
+ *     どちらでもなければ画面に表示する｡
+ *     データをキャシュして､前回読込時以降のプレイ履歴が全てあれば差分のみ読込む｡
  * @author panda (twitter:_panda)
- * @version 0.1
+ * @version 0.2
  */
+'use strict';
 {
+const p = {
+    isNull:v=>v==null,
+    isFunction:func=>typeof func === 'function',
 
-let p = {};
-p.isNull = v=>v==null;
-p.isFunction = func=>typeof func === 'function';
+    /** @private */
+    _getCash:k=>localStorage.getItem('uni_'+k),
+    isCash:k=>!p.isNull(p._getCash(k)),
+    getCash:(k,v = null)=>p.isCash(k)?JSON.parse(p._getCash(k)):v,
+    setCash:(k,v)=>localStorage.setItem('uni_'+k,JSON.stringify(v)),
 
-p._getCash = k=>localStorage.getItem('uni_'+k);
-p.isCash = k=>!p.isNull(p._getCash(k));
-p.getCash = (k,v)=>p.isCash(k)?JSON.parse(p._getCash(k)):v;
-p.setCash = (k,v)=>localStorage.setItem('uni_'+k,JSON.stringify(v));
+    parseFloat:v=>parseFloat(String(v).replace(/[^\d\.]/g,'')),
+    parseInt:v=>parseInt(String(v).replace(/[^\d]/g,''),10),
 
-p.parseFloat = v=>parseFloat(String(v).replace(/[^\d\.]/g,''));
-p.parseInt = v=>parseInt(String(v).replace(/[^\d]/g,''),10);
-
-p.parseResultIcon = imgParent=>{
-    let rslt = {
-        clear:false,
-        fcaj:0,
-        chain:0,
-    }
-
-    $(imgParent).find('img').each((idx,img)=>{
-        let word = img.src.match(reg.pngLastWord)[1];
-        
-        if(word == "clear"){
-            rslt.clear = true;
-        }else if(word.length < 3){
-            rslt.rank = parseInt(word,10);
-        }else if(word == 'alljustice'){
-            rslt.fcaj = 2;
-        }else if(word == 'fullcombo'){
-            rslt.fcaj = 1;
-        }else if(word.indexOf('fullchain') > -1){
-            rslt.chain = (word.indexOf('2') > -1)?1:2;
-        }
-    });
-    return rslt;
+    parseResultIcon:imgParent=>{
+        return $(imgParent).find('img').toArray().reduce((rslt,img)=>{
+            let [,word] = img.src.match(reg.pngLastWord);
+            
+            if(word == "clear"){
+                rslt.clear = true;
+            }else if(word.length < 3){
+                rslt.rank = p.parseInt(word);
+            }else if(word == 'alljustice'){
+                rslt.fcaj = 2;
+            }else if(word == 'fullcombo'){
+                rslt.fcaj = 1;
+            }else if(word.includes('fullchain')){
+                rslt.chain = word.includes('2')?1:2;
+            }
+            return rslt;
+        },{clear:false,fcaj:0,chain:0,});
+    },
+    /**
+     * @param {Element} img
+     * @return {Number} 0-4
+     */
+    parseDifIdByImg:img=>difIdList[img.src.match(reg.pngLastWord)[1]],
+    /** 全角を半角に
+     * @param {string} v
+     * @return {string}
+     */
+    toHalfWidth:v=>
+      v.replace(/[！-～]/g,tmpStr=>String.fromCharCode(tmpStr.charCodeAt(0) - 0xFEE0))
+      .replace(/”/g,"\"").replace(/’/g,"'").replace(/‘/g,"`")
+      .replace(/￥/g,"\\").replace(/　/g," ").replace(/〜/g,"~"),
+    /** 頭に0付ける
+     * @return {string}
+     */
+    zeroFill:(v,len)=>String(v).padStart(len,'0'),
+    /** Date->MM/dd hh:mm
+     * @param {Date} date
+     * @return {string}
+     */
+    dateFormat:date=>`${p.zeroFill(date.getMonth()+1,2)}/${p.zeroFill(date.getDate(),2)}`+
+      ` ${p.zeroFill(date.getHours(),2)}:${p.zeroFill(date.getMinutes(),2)}`,
+    /**
+     * @param {Array|Object} list
+     * @param {*} val
+     * @return {string}
+     */
+    getKey:(list,val)=>Object.keys(list).find(k=>list[k]==val),
 };
 
-/**
- * @param {Element} img
- * @return {number} 0-4
- */
-p.parseDifIdByImg = img=>difIdList[img.src.match(reg.pngLastWord)[1]];
+const setTimeoutAsync = delay=>new Promise(resolve=>setTimeout(resolve, delay));
 
-p.toHalfWidth = v=>
-v.replace(/[！-～]/g,tmpStr=>String.fromCharCode(tmpStr.charCodeAt(0) - 0xFEE0))
-.replace(/”/g,"\"").replace(/’/g,"'").replace(/‘/g,"`")
-.replace(/￥/g,"\\").replace(/　/g," ").replace(/〜/g,"~");
-
-p.zeroFill = (v,len)=>String(v).padStart(len,'0');
-p.dateFormat = date=>`${p.zeroFill(date.getMonth()+1,2)}/${p.zeroFill(date.getDate(),2)}`+
-  ` ${p.zeroFill(date.getHours(),2)}:${p.zeroFill(date.getMinutes(),2)}`;
-
-p.getKey = (list,val)=>{
-    let key;
-    $.each(list,(_key,_val)=>val==_val&&(key=_key));
-    return key;
-};
-
-let setTimeoutAsync = delay=>new Promise(resolve=>setTimeout(resolve, delay));
-
-let ajaxChainClass = class {
+const ajaxChainClass = class ajaxChainClass{
     constructor(){
         this.interval = 100;
-        this.clear();
+        this.cue = [];
     }
     clear(){
         this.cue = [];
@@ -85,8 +89,8 @@ let ajaxChainClass = class {
         let reslt = [];
         this.cue.forEach(val=>{
             promise = promise.then(()=>$.ajax({url:val.url,method:'POST',data:val.param}))
-                .then(v=>reslt.push(p.isFunction(val.call)?val.call(v):v))
-                .then(v=>setTimeoutAsync(this.interval));
+              .then(v=>reslt.push(p.isFunction(val.call)?val.call(v):v))
+              .then(v=>setTimeoutAsync(this.interval));
         });
         if(p.isFunction(call)) promise.then(()=>call(reslt));
         this.clear();
@@ -94,7 +98,7 @@ let ajaxChainClass = class {
     }
     /**
      * @param {string} url 
-     * @param {object} param 
+     * @param {Object} param 
      * @param {Function} call 
      * @param {Function} compCall 
      * @return {Promise}
@@ -104,9 +108,9 @@ let ajaxChainClass = class {
     }
     /**
      * @param {string} url 
-     * @param {object} param 
+     * @param {Object} param 
      * @param {Function} call 
-     * @return {this}
+     * @return {ajaxChainClass}
      */
     add(url,param,call){
         this.cue.push({'url':url,'param':param,'call':call});
@@ -114,7 +118,7 @@ let ajaxChainClass = class {
     }
 };
 
-let viewClass = class {
+const viewClass = class {
     constructor(){
         this.frame01 = $('.frame01');
     }
@@ -128,9 +132,9 @@ let viewClass = class {
     }
 }
 
-let reg = {pngLastWord:/_([^_]+)\.png$/};
+const reg = {pngLastWord:/_([^_]+)\.png$/};
 
-let difIdList = {
+const difIdList = {
     'basic':0,
     'advanced':1,
     'expert':2,
@@ -139,7 +143,7 @@ let difIdList = {
     'worldsend':4
 };
 
-let difList = {
+const difList = {
     0:'basic',
     1:'advanced',
     2:'expert',
@@ -147,15 +151,7 @@ let difList = {
     4:'worldsend'
 };
 
-let difList_s = {
-    0:'BAS',
-    1:'ADV',
-    2:'EXP',
-    3:'MAS',
-    4:'WE'
-};
-
-let genreList = {
+const genreList = {
     99:'全ジャンル',
     0:'POPS & ANIME',
     2:'niconico',
@@ -167,13 +163,13 @@ let genreList = {
     5:'ORIGINAL',
 };
 
-let fcajList = {
+const fcajList = {
     0:'',
     1:'FC',
     2:'AJ',
 };
 
-let rankList = {
+const rankList = {
     0:'D',
     1:'C',
     2:'B',
@@ -187,72 +183,71 @@ let rankList = {
     10:'SSS',
 };
 
-let chainList = {
+const chainList = {
     0:'',
     1:'FullChain2',
     2:'FullChain',
 };
 
-let USERINFO_URL = '/mobile/UserInfoDetail.html';
-let MUSICLIST_URL = '/mobile/MusicGenre.html';
-let MUSICDETAIL_URL = MUSICLIST_URL;
-let WEMUSICLIST_URL = '/mobile/WorldsEndMusic.html';
-let WEMUSICDETAIL_URL = WEMUSICLIST_URL;
-let PLAYLOGLIST_URL = '/mobile/Playlog.html';
-let PLAYLOGDETAIL_URL = PLAYLOGLIST_URL;
-let FRIENDSEARCH_URL = '/mobile/FriendSearch.html';
+const USERINFO_URL = '/mobile/UserInfoDetail.html';
+const MUSICLIST_URL = '/mobile/MusicGenre.html';
+const MUSICDETAIL_URL = MUSICLIST_URL;
+const WEMUSICLIST_URL = '/mobile/WorldsEndMusic.html';
+const WEMUSICDETAIL_URL = WEMUSICLIST_URL;
+const PLAYLOGLIST_URL = '/mobile/Playlog.html';
+const PLAYLOGDETAIL_URL = PLAYLOGLIST_URL;
+const FRIENDSEARCH_URL = '/mobile/FriendSearch.html';
 
-let MUSICLIST_EXPERT_PARAM = {music_genre:'music_genre',genre:'99',level:'expert'};
-let MUSICDETAIL_PARAM = id=>Object({music_detail:'music_detail',musicId:id});
-let PLAYLOGDETAIL_PARAM = idx=>Object({pageMove:'pageMove',nextPage:'PlaylogDetail',args:idx});
+const param = {
+    musicList:dif=>Object({music_genre:'music_genre',genre:'99',level:difList[dif]}),
+    musicDetail:id=>Object({music_detail:'music_detail',musicId:id}),
+    PlayLogDetail:idx=>Object({pageMove:'pageMove',nextPage:'PlaylogDetail',args:idx})
+}
 
 /**
- * @param {String} html
+ * @param {string} html
  * @return {Object} 
  */
-let scrape_userInfo = html=>{
-    let $html = $(html);
-    let $player = $html.find('.box_player > form');
-    let rateStr = $player.find('.player_rating').text().split('/');
-    let vegasStr = $player.find('.user_data_playpoint').text().split('（');
+const scrape_userInfo = html=>{
+    const $html = $(html);
+    const $player = $html.find('.box_player > form');
+    const [rateStr,rateMaxStr] = $player.find('.player_rating').text().split('/');
+    const [vegasStr,vegasMaxStr] = $player.find('.user_data_playpoint').text().split('（');
 
     return {
         honer:$player.find('.player_honor_text').text(),
         /* 輪廻転生はどう表示されるのか... */
         lv:p.parseInt($player.find('.player_lv').text()),
         name:p.toHalfWidth($player.find('.player_name2 > span').text()),
-        rate:p.parseFloat(rateStr[0]),
-        rateMax:p.parseFloat(rateStr[1]),
+        rate:p.parseFloat(rateStr),
+        rateMax:p.parseFloat(rateMaxStr),
         imgURL:$player.find('.character_image_box_full > img').get(0).src,
-        vegas:p.parseInt(vegasStr[0]),
-        vegasMax:p.parseInt(vegasStr[1]),
+        vegas:p.parseInt(vegasStr),
+        vegasMax:p.parseInt(vegasMaxStr),
+        playCount:p.parseInt($player.find('.user_data_play').text()),
         comment:$player.find('.player_data_comment').text(),
         riyouken:p.parseInt($player.find('.home_player_riyouken').text()),
     };
 };
 
-/**
- * @param {String} html
+/** friendCode以外は･･･まぁええやろ
+ * @param {string} html
  * @return {Object} 
  */
-let scrape_friendSearch = html=>{
-    let $html = $(html);
-    let d = $html.find('.box02 > .text_c').text();
-    //フレンドコード以外は･･･まっええやろ
-    return {friendCode:d.split('：')[1].trim()};
-};
+const scrape_friendSearch = html=>
+  Object({friendCode:$(html).find('.box02 > .text_c').text().split('：')[1].trim()});
 
 /**
- * @param {String} html
+ * @param {string} html
  * @return {Object} 
  */
-let scrape_musicList = html=>{
+const scrape_musicList = html=>{
     return $(html).find('#music_detail > DIV > DIV.box05').toArray().reduce((arr,v)=>{
-        let $genreList = $(v);
-        let genreId = p.parseInt(p.getKey(genreList,$genreList.find('.genre').text()));
+        const $genreList = $(v);
+        const genreId = p.parseInt(p.getKey(genreList,$genreList.find('.genre').text()));
 
         return $genreList.find('.musiclist_box').toArray().reduce((_arr,_v)=>{
-            let $el = $(_v);
+            const $el = $(_v);
             _arr.push({
                 genre:genreId,
                 id:p.parseInt($el.find('.music_title').get(0).onclick),
@@ -264,14 +259,14 @@ let scrape_musicList = html=>{
 };
 
 /**
- * @param {String} html
+ * @param {string} html
  * @return {Object} 
  */
-let scrape_WEMusicList = html=>{
-    let $weList = $(html).find('#music_detail > .musiclist_box > .musiclist_worldsend_title_block');
+const scrape_WEMusicList = html=>{
+    const $weList = $(html).find('#music_detail > .musiclist_box > .musiclist_worldsend_title_block');
     return $weList.toArray().map(v=>{
-        let $we = $(v);
-        let title = $we.find('.musiclist_worldsend_title').get(0);
+        const $we = $(v);
+        const title = $we.find('.musiclist_worldsend_title').get(0);
         return {
             id:p.parseInt(title.onclick),
             title:$(title).text(),
@@ -281,10 +276,10 @@ let scrape_WEMusicList = html=>{
     });
 };
 
-let scrape_playLogList = html=>{
-    let $html = $(html);
+const scrape_playLogList = html=>{
+    const $html = $(html);
     return $html.find('.box01 > .mt_10 > FORM > .frame02').toArray().map(v=>{
-        let $frame02 = $(v);
+        const $frame02 = $(v);
         return Object.assign(
             {
                 date:$frame02.find('.play_datalist_date').text(),
@@ -302,14 +297,14 @@ let scrape_playLogList = html=>{
 };
 
 /**
- * @param {String} html
- * @param {number} musicId 
- * @param {number} genreId 
+ * @param {string} html
+ * @param {Number} musicId 
+ * @param {Number} genreId 
  * @return {Object}
  */
-let scrape_musicDetail = (html,musicId,genreId)=>{
-    let $html = $(html);
-    let $jacket = $($html.find('.frame02').get(0));
+const scrape_musicDetail = (html,musicId,genreId)=>{
+    const $html = $(html);
+    const $jacket = $($html.find('.frame02').get(0));
 
     let musicDetail = {
         dif:{},
@@ -321,9 +316,9 @@ let scrape_musicDetail = (html,musicId,genreId)=>{
     };
 
     return $html.find('.music_box').toArray().reduce((detail,v)=>{
-        let $dif = $(v);
-        let $box02 = $dif.find('.box02 > *');
-        let difId = p.parseDifIdByImg($dif.find('.musicdata_detail_difficulty > IMG').get(0));
+        const $dif = $(v);
+        const $box02 = $dif.find('.box02 > *');
+        const difId = p.parseDifIdByImg($dif.find('.musicdata_detail_difficulty > IMG').get(0));
 
         detail.dif[difId] = Object.assign(
             {
@@ -339,13 +334,13 @@ let scrape_musicDetail = (html,musicId,genreId)=>{
 };
 
 /**
- * @param {String} html
- * @param {number} id musicId
+ * @param {string} html
+ * @param {Number} id musicId
  * @return {Object}
  */
-let scrape_WEMusicDetail = (html,id)=>{
-    let $html = $(html);
-    let $frame02 = $html.find('#music_detail > .frame02');
+const scrape_WEMusicDetail = (html,id)=>{
+    const $html = $(html);
+    const $frame02 = $html.find('#music_detail > .frame02');
 
     let musicDetail = {
         id:id,
@@ -357,7 +352,7 @@ let scrape_WEMusicDetail = (html,id)=>{
         artist:$frame02.find('.play_musicdata_artist').text().trim()
     };;
 
-    let $music_box = $html.find('#music_detail > DIV > .music_box');
+    const $music_box = $html.find('#music_detail > DIV > .music_box');
     if($music_box.length != 0){
         musicDetail.dif[4] = Object.assign(
             {
@@ -372,8 +367,8 @@ let scrape_WEMusicDetail = (html,id)=>{
     return musicDetail;
 };
 
-scrape_playLogDetail = html=>{
-    let $html = $(html);
+const scrape_playLogDetail = html=>{
+    const $html = $(html);
 
     //DIV.frame01 > DIV.frame01_inside > FROM > DIV.bix01 > DIV.frame02 >
     // DIV.play_jacket_side > DIV.jacket_area > DIV.play_data_task > IMG (src)
@@ -381,10 +376,10 @@ scrape_playLogDetail = html=>{
 //----------------------------//
 
 //全読込
-let fullRead = (ajax,view,d)=>{
+const fullRead = (ajax,view,d)=>{
     ajax.clear();
     d.musicList.forEach(v=>{
-        ajax.add(MUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
+        ajax.add(MUSICDETAIL_URL,param.musicDetail(v.id),html=>{
             view.info(`[${p.zeroFill(v.id,4)}] ${v.title}`);
             return scrape_musicDetail(html,v.id,v.genre);
         });
@@ -393,7 +388,7 @@ let fullRead = (ajax,view,d)=>{
     .then(()=>{
         ajax.clear();
         d.WEMusicList.forEach(v=>{
-            ajax.add(WEMUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
+            ajax.add(WEMUSICDETAIL_URL,param.musicDetail(v.id),html=>{
                 view.info(`[${v.id}] ${v.title}`);
                 return scrape_WEMusicDetail(html,v.id);
             });
@@ -404,7 +399,7 @@ let fullRead = (ajax,view,d)=>{
 };
 
 //差分読込
-let differencialRead = (ajax,view,d)=>{
+const differencialRead = (ajax,view,d)=>{
     ajax.clear();
 
     let newPlayTitle_NM = [];
@@ -419,18 +414,16 @@ let differencialRead = (ajax,view,d)=>{
     newPlayTitle_NM = Array.from(new Set(newPlayTitle_NM));
     newPlayTitle_WE = Array.from(new Set(newPlayTitle_WE));
 
-    let newPlayMusicList_NM = newPlayTitle_NM.map(
-        title=>d.musicList.find(v=>v.title == title)
-    );
-    let newPlayMusicList_WE = newPlayTitle_WE.map(
-        title=>d.WEMusicList.find(v=>v.title == title)
-    );
+    const newPlayMusicList_NM = newPlayTitle_NM.map(
+        title=>d.musicList.find(v=>v.title == title));
+    const newPlayMusicList_WE = newPlayTitle_WE.map(
+        title=>d.WEMusicList.find(v=>v.title == title));
 
     let newPlayCount = newPlayMusicList_NM.length+newPlayMusicList_WE.length;
     view.info(newPlayCount==0?'更新なし':`${newPlayCount}曲更新`);
 
     newPlayMusicList_NM.forEach(v=>{
-        ajax.add(MUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
+        ajax.add(MUSICDETAIL_URL,param.musicDetail(v.id),html=>{
             view.info(`[${p.zeroFill(v.id,4)}] ${v.title}`);
             return scrape_musicDetail(html,v.id,v.genre);
         });
@@ -448,7 +441,7 @@ let differencialRead = (ajax,view,d)=>{
     .then(()=>{
         ajax.clear();
         newPlayMusicList_WE.forEach(v=>{
-            ajax.add(WEMUSICDETAIL_URL,MUSICDETAIL_PARAM(v.id),html=>{
+            ajax.add(WEMUSICDETAIL_URL,param.musicDetail(v.id),html=>{
                 view.info(`[${v.id}] ${v.title}`);
                 return scrape_WEMusicDetail(html,v.id);
             });
@@ -467,34 +460,49 @@ let differencialRead = (ajax,view,d)=>{
     .then(()=>cashAndExport(ajax,view,d));
 };
 
-let cashAndExport = (ajax,view,d)=>{
+const cashAndExport = (ajax,view,d)=>{
     d.opt.date = Date.now();
     view.info('Complete!!');
     p.setCash(d.friendSearch.friendCode,d);
-    
-    if(p.isNull(window._EXPORTURL)){
-        export_window(d);
+    console.log('orgData',d);
+
+    if(p.isFunction(window._EXPORT)){
+        window._EXPORT(d);
+    }else if(String(window._EXPORT).search(/^(https?:)?\/\//) != -1){
+        const url = String(window._EXPORT);
+        if(url.includes('//chuniviewer.net/updatescore')){
+            check_chuniviwer_version(ajax).then(
+                ()=>export_chuniviwer(d),
+                ver=>view.info(`ChuniViwerが更新されています｡ ${CHUNIVWER_VERSION} -> ${ver}`)
+            );
+        }else{
+            export_post(d,url);
+        }
     }else{
-        export_post(d,window._EXPORTURL);
+        export_window(d);
     }
 }
 
 /**
  * POSTで送りつける
- * @param {object} v 
+ * @param {Object} d
+ * @param {string} url
+ * @param {string=} name
  */
-let export_post = (d,url)=>{
+const export_post = (d,url,name = 'data')=>{
+    console.log('exportData',d);
     $('<FORM />',{action:url,method:'post',target:'_blank'})
-    .append($('<INPUT />', {type:'hidden',name:'data',value:JSON.stringify(d)}))
+    .append($('<INPUT />', {type:'hidden',name:name,value:JSON.stringify(d)}))
     .appendTo(document.body)
-    .submit().remove();
+    .submit()
+    .remove();
 };
 
 /**
  * 新しいタブに表示
- * @param {object} v 
+ * @param {Object} d
  */
-let export_window = d=>{
+const export_window = d=>{
     console.log(d);
     window.open('about:blank').document.body.innerHTML = `
     <pre><code>
@@ -503,8 +511,62 @@ let export_window = d=>{
     `;
 };
 
+//ChuniViwer------------------------------------------>
+const CHUNIVIWER_UPLOAD_URL = '//chuniviewer.net/updatescore';
+const CHUNIVIWER_VERCHECK_URL = '//chuniviewer.net/GetScriptVersion.php';
+const CHUNIVWER_VERSION = 120;
+
+const check_chuniviwer_version = ajax=>
+    new Promise((resolve,reject)=>
+        ajax.sendOnce(CHUNIVIWER_VERCHECK_URL,null,v=>
+            (v.version == CHUNIVWER_VERSION?resolve:reject)(v.version)
+        )
+    )
+;
+
+/**
+ * ChuniViwerにアップロード
+ * @param {Object} d
+ */
+const export_chuniviwer = d=>{
+    let userInfo = {
+        highestRating:d.userInfo.rateMax*100,
+        level:String(d.userInfo.lv),
+        playCount:String(d.userInfo.playCount),
+        playerRating:d.userInfo.rate*100,
+        point:d.userInfo.vegas,
+        reincarnationNum:0,//
+        totalPoint:d.userInfo.vegasMax,
+        trophyName:d.userInfo.honer,
+        userName:d.userInfo.name,
+    };
+
+    let musicDetail = d.musicDetailList.map(detail=>Object({
+        music_id:String(detail.id),
+        scoreData:Object.keys(detail.dif).reduce((r,k)=>{
+            let v = detail.dif[k];
+            r[v.dif] = {
+                alljustice:v.fcaj==2,
+                difficulty:v.dif,
+                fullchain:v.chain,
+                fullcombo:v.fcaj==1,
+                playcount:v.playCount,
+                rank:String(v.rank),
+                score:String(v.score),
+                success:v.clear,
+                updateDate:v.date,
+            };
+            return r;
+        },{0:{},1:{},2:{},3:{}})
+    }));
+    
+    export_post({musicDetail,playerInfo:{userInfo}},CHUNIVIWER_UPLOAD_URL,'scoredata');
+};
+
+//ChuniViwer<------------------------------------------
+
 //----------------------------//
-let d = {
+void {
     userInfo:null,
     friendSearch:null,
 
@@ -521,27 +583,27 @@ let d = {
     }
 };
 //----------------------------//
-let ajax = new ajaxChainClass();
-let view = new viewClass();
+const ajax = new ajaxChainClass();
+const view = new viewClass();
 view.clear();
 
 void ajax.add(USERINFO_URL,null,v=>{
-    let userInfo = scrape_userInfo(v);
+    const userInfo = scrape_userInfo(v);
     view.info(`ユーザー名：${userInfo.name}`);
     return userInfo;
 })
 .add(FRIENDSEARCH_URL,null,v=>{
-    let friendSearch = scrape_friendSearch(v);
+    const friendSearch = scrape_friendSearch(v);
     view.info(`フレンドコード：${friendSearch.friendCode}`);
     return friendSearch;
 })
-.add(MUSICLIST_URL,MUSICLIST_EXPERT_PARAM,v=>{
-    let musicList = scrape_musicList(v);
+.add(MUSICLIST_URL,param.musicList(2),v=>{
+    const musicList = scrape_musicList(v);
     view.info(`通常曲数：${musicList.length}曲`);
     return musicList;
 })
 .add(WEMUSICLIST_URL,null,v=>{
-    let WEMusicList = scrape_WEMusicList(v);
+    const WEMusicList = scrape_WEMusicList(v);
     view.info(`WE曲数：${WEMusicList.length}曲`)
     return WEMusicList;
 })
@@ -551,8 +613,8 @@ void ajax.add(USERINFO_URL,null,v=>{
     //view.info(`フレンドコード：${friendSearch.friendCode}`);
     //view.info(`通常曲数：${musicList.length}曲`);
     //view.info(`WE曲数：${WEMusicList.length}曲`)
-    let lastLogDate = playLogList[0].date;
-    let fastLogDate = playLogList[playLogList.length - 1].date;
+    const lastLogDate = playLogList[0].date;
+    const fastLogDate = playLogList[playLogList.length - 1].date;
     view.info(`プレイ履歴：${fastLogDate.slice(5)} ～ ${lastLogDate.slice(5)}`);
 
     let cash = p.getCash(friendSearch.friendCode);
@@ -561,7 +623,7 @@ void ajax.add(USERINFO_URL,null,v=>{
         view.info('キャッシュ：なし');
     }else{
         /** @type {Date} */
-        let cashDate = new Date(cash.opt.date);
+        const cashDate = new Date(cash.opt.date);
         view.info(`キャッシュ：あり [${p.dateFormat(cashDate)}]`);
 
         if(Date.parse(fastLogDate) < cashDate.getTime()){
@@ -572,11 +634,11 @@ void ajax.add(USERINFO_URL,null,v=>{
     view.info(`${allReadMode?'全':'差分'}読込モード`);
     
     let d = {
-        userInfo:userInfo,
-        friendSearch:friendSearch,
-        playLogList:playLogList,
-        musicList:musicList,
-        WEMusicList:WEMusicList,
+        userInfo,
+        friendSearch,
+        playLogList,
+        musicList,
+        WEMusicList,
     };
 
     if(allReadMode){
