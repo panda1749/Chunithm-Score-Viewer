@@ -73,8 +73,8 @@ const p = {
 const setTimeoutAsync = delay=>new Promise(resolve=>setTimeout(resolve, delay));
 
 const ajaxChainClass = class ajaxChainClass{
-    constructor(){
-        this.interval = 100;
+    constructor(interval = 100){
+        this.interval = interval;
         this.cue = [];
     }
     clear(){
