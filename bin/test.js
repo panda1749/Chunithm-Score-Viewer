@@ -1,1 +1,1 @@
-_EXPOET = (d)=>console.log('test.js',d);
+_EXPORT = (d)=>console.log('test.js',d);
