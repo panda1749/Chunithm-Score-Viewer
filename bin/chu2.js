@@ -12,6 +12,9 @@ const p = {
     isNull:v=>v==null,
     isFunction:func=>typeof func === 'function',
 
+    sum:(arr,fn)=>(this.isNull(fn)?arr.map(fn):arr).reduce((r,v)=>r+v),
+    average:(arr,fn)=>this.sum(arr,fn)/arr.length,
+
     /** @private */
     _getCash:k=>localStorage.getItem('uni_'+k),
     isCash:k=>!p.isNull(p._getCash(k)),
@@ -23,7 +26,7 @@ const p = {
 
     parseResultIcon:imgParent=>{
         return $(imgParent).find('img').toArray().reduce((rslt,img)=>{
-            let [,word] = img.src.match(reg.pngLastWord);
+            const [,word] = img.src.match(reg.pngLastWord);
             
             if(word == "clear"){
                 rslt.clear = true;
@@ -43,7 +46,7 @@ const p = {
      * @param {Element} img
      * @return {Number} 0-4
      */
-    parseDifIdByImg:img=>difIdList[img.src.match(reg.pngLastWord)[1]],
+    parseDifIdByImg:img=>m.difIdList[img.src.match(reg.pngLastWord)[1]],
     /** 全角を半角に
      * @param {string} v
      * @return {string}
@@ -86,7 +89,7 @@ const ajaxChainClass = class ajaxChainClass{
      */
     send(call){
         let promise = Promise.resolve();
-        let reslt = [];
+        const reslt = [];
         this.cue.forEach(val=>{
             promise = promise.then(()=>$.ajax({url:val.url,method:'POST',data:val.param}))
               .then(v=>reslt.push(p.isFunction(val.call)?val.call(v):v))
@@ -134,60 +137,58 @@ const viewClass = class {
 
 const reg = {pngLastWord:/_([^_]+)\.png$/};
 
-const difIdList = {
-    'basic':0,
-    'advanced':1,
-    'expert':2,
-    'expart':2,
-    'master':3,
-    'worldsend':4
-};
-
-const difList = {
-    0:'basic',
-    1:'advanced',
-    2:'expert',
-    3:'master',
-    4:'worldsend'
-};
-
-const genreList = {
-    99:'全ジャンル',
-    0:'POPS & ANIME',
-    2:'niconico',
-    3:'東方Project',
-    6:'VARIETY',
-    1:'GAME',
-    7:'イロドリミドリ',
-    8:'言ノ葉Project',
-    5:'ORIGINAL',
-};
-
-const fcajList = {
-    0:'',
-    1:'FC',
-    2:'AJ',
-};
-
-const rankList = {
-    0:'D',
-    1:'C',
-    2:'B',
-    3:'BB',
-    4:'BBB',
-    5:'A',
-    6:'AA',
-    7:'AAA',
-    8:'S',
-    9:'SS',
-    10:'SSS',
-};
-
-const chainList = {
-    0:'',
-    1:'FullChain2',
-    2:'FullChain',
-};
+const m = {
+    difIdList:{
+        'basic':0,
+        'advanced':1,
+        'expert':2,
+        'expart':2,
+        'master':3,
+        'worldsend':4
+    },
+    difList:{
+        0:'basic',
+        1:'advanced',
+        2:'expert',
+        3:'master',
+        4:'worldsend'
+    },
+    genreList:{
+        99:'全ジャンル',
+        0:'POPS & ANIME',
+        2:'niconico',
+        3:'東方Project',
+        6:'VARIETY',
+        1:'GAME',
+        7:'イロドリミドリ',
+        8:'言ノ葉Project',
+        5:'ORIGINAL',
+    },
+    genreIdSort:[99,0,2,3,6,1,7,8,5,],
+    fcajList:{
+        0:'',
+        1:'FC',
+        2:'AJ',
+    },
+    rankList:{
+        0:'D',
+        1:'C',
+        2:'B',
+        3:'BB',
+        4:'BBB',
+        5:'A',
+        6:'AA',
+        7:'AAA',
+        8:'S',
+        9:'SS',
+        10:'SSS',
+    },
+    chainList:{
+        0:'',
+        1:'FullChain2',
+        2:'FullChain',
+    },
+}
 
 const USERINFO_URL = '/mobile/UserInfoDetail.html';
 const MUSICLIST_URL = '/mobile/MusicGenre.html';
@@ -199,7 +200,7 @@ const PLAYLOGDETAIL_URL = PLAYLOGLIST_URL;
 const FRIENDSEARCH_URL = '/mobile/FriendSearch.html';
 
 const param = {
-    musicList:dif=>Object({music_genre:'music_genre',genre:'99',level:difList[dif]}),
+    musicList:dif=>Object({music_genre:'music_genre',genre:'99',level:m.difList[dif]}),
     musicDetail:id=>Object({music_detail:'music_detail',musicId:id}),
     PlayLogDetail:idx=>Object({pageMove:'pageMove',nextPage:'PlaylogDetail',args:idx})
 }
@@ -244,7 +245,7 @@ const scrape_friendSearch = html=>
 const scrape_musicList = html=>{
     return $(html).find('#music_detail > DIV > DIV.box05').toArray().reduce((arr,v)=>{
         const $genreList = $(v);
-        const genreId = p.parseInt(p.getKey(genreList,$genreList.find('.genre').text()));
+        const genreId = p.parseInt(p.getKey(m.genreList,$genreList.find('.genre').text()));
 
         return $genreList.find('.musiclist_box').toArray().reduce((_arr,_v)=>{
             const $el = $(_v);
@@ -306,7 +307,7 @@ const scrape_musicDetail = (html,musicId,genreId)=>{
     const $html = $(html);
     const $jacket = $($html.find('.frame02').get(0));
 
-    let musicDetail = {
+    const musicDetail = {
         dif:{},
         id:musicId,
         genre:genreId,
@@ -342,7 +343,7 @@ const scrape_WEMusicDetail = (html,id)=>{
     const $html = $(html);
     const $frame02 = $html.find('#music_detail > .frame02');
 
-    let musicDetail = {
+    const musicDetail = {
         id:id,
         dif:{},
         imgURL:$frame02.find('.play_jacket_img > IMG').get(0).src,
@@ -419,7 +420,7 @@ const differencialRead = (ajax,view,d)=>{
     const newPlayMusicList_WE = newPlayTitle_WE.map(
         title=>d.WEMusicList.find(v=>v.title == title));
 
-    let newPlayCount = newPlayMusicList_NM.length+newPlayMusicList_WE.length;
+    const newPlayCount = newPlayMusicList_NM.length+newPlayMusicList_WE.length;
     view.info(newPlayCount==0?'更新なし':`${newPlayCount}曲更新`);
 
     newPlayMusicList_NM.forEach(v=>{
@@ -430,7 +431,7 @@ const differencialRead = (ajax,view,d)=>{
     });
     ajax.send(r=>{
         r.forEach(v=>{
-            let musicDetail = d.musicDetailList.find(m=>m.id == v.id);
+            const musicDetail = d.musicDetailList.find(m=>m.id == v.id);
             if(p.isNull(musicDetail)){
                 d.musicDetailList.push(v);
             }else{
@@ -448,7 +449,7 @@ const differencialRead = (ajax,view,d)=>{
         });
         return ajax.send(r=>{
             r.forEach(v=>{
-                let musicDetail = d.WEMusicDetailList.find(m=>m.id == v.id);
+                const musicDetail = d.WEMusicDetailList.find(m=>m.id == v.id);
                 if(p.isNull(musicDetail)){
                     d.WEMusicDetailList.push(v);
                 }else{
@@ -467,7 +468,7 @@ const cashAndExport = (ajax,view,d)=>{
     console.log('orgData',d);
 
     if(p.isFunction(window._EXPORT)){
-        window._EXPORT(d);
+        window._EXPORT(d,{m,p});
     }else if(String(window._EXPORT).search(/^(https?:)?\/\//) != -1){
         const url = String(window._EXPORT);
         if(url.includes('//chuniviewer.net/updatescore')){
@@ -490,7 +491,7 @@ const cashAndExport = (ajax,view,d)=>{
  * @param {string=} name
  */
 const export_post = (d,url,name = 'data')=>{
-    console.log('exportData',d);
+    console.log('exportData',`name : ${name}`,d);
     $('<FORM />',{action:url,method:'post',target:'_blank'})
     .append($('<INPUT />', {type:'hidden',name:name,value:JSON.stringify(d)}))
     .appendTo(document.body)
@@ -529,7 +530,7 @@ const check_chuniviwer_version = ajax=>
  * @param {Object} d
  */
 const export_chuniviwer = d=>{
-    let userInfo = {
+    const userInfo = {
         highestRating:d.userInfo.rateMax*100,
         level:String(d.userInfo.lv),
         playCount:String(d.userInfo.playCount),
@@ -541,10 +542,10 @@ const export_chuniviwer = d=>{
         userName:d.userInfo.name,
     };
 
-    let musicDetail = d.musicDetailList.map(detail=>Object({
+    const musicDetail = d.musicDetailList.map(detail=>Object({
         music_id:String(detail.id),
         scoreData:Object.keys(detail.dif).reduce((r,k)=>{
-            let v = detail.dif[k];
+            const v = detail.dif[k];
             r[v.dif] = {
                 alljustice:v.fcaj==2,
                 difficulty:v.dif,
@@ -609,15 +610,11 @@ void ajax.add(USERINFO_URL,null,v=>{
 })
 .add(PLAYLOGLIST_URL,null,scrape_playLogList)
 .send(([userInfo,friendSearch,musicList,WEMusicList,playLogList])=>{
-    //view.info(`ユーザー名：${userInfo.name}`);
-    //view.info(`フレンドコード：${friendSearch.friendCode}`);
-    //view.info(`通常曲数：${musicList.length}曲`);
-    //view.info(`WE曲数：${WEMusicList.length}曲`)
     const lastLogDate = playLogList[0].date;
     const fastLogDate = playLogList[playLogList.length - 1].date;
     view.info(`プレイ履歴：${fastLogDate.slice(5)} ～ ${lastLogDate.slice(5)}`);
 
-    let cash = p.getCash(friendSearch.friendCode);
+    const cash = p.getCash(friendSearch.friendCode);
     let allReadMode = true; 
     if(p.isNull(cash)){
         view.info('キャッシュ：なし');
@@ -625,15 +622,16 @@ void ajax.add(USERINFO_URL,null,v=>{
         /** @type {Date} */
         const cashDate = new Date(cash.opt.date);
         view.info(`キャッシュ：あり [${p.dateFormat(cashDate)}]`);
-
-        if(Date.parse(fastLogDate) < cashDate.getTime()){
+        if((musicList.length != cash.musicList.length)|(WEMusicList.length != cash.WEMusicList.length)){
+            view.info('新曲あり');
+        }else if(Date.parse(fastLogDate) < cashDate.getTime()){
             allReadMode = false;
         }
     }
 
     view.info(`${allReadMode?'全':'差分'}読込モード`);
     
-    let d = {
+    const d = {
         userInfo,
         friendSearch,
         playLogList,
