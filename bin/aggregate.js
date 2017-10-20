@@ -1,4 +1,16 @@
 _EXPORT = (d,{m,p})=>{
+    const shortGenreName = {
+        99:'ALL',
+        0:'ポプアニ',
+        2:'niconico',
+        3:'東方',
+        6:'VARIETY',
+        1:'GAME',
+        7:'イロドリ',
+        8:'言ノ葉',
+        5:'ORIGINAL',
+    };
+
     const viewClass = class {
         constructor(){
             this.$frame01 = $('.frame01');
@@ -42,6 +54,60 @@ _EXPORT = (d,{m,p})=>{
         }
         changeDifView(dif){
             this.$content.empty();
+
+            const $avgInfo = $(this.TAG.DIV/*,{class:'block_information'}*/);
+            $(this.TAG.DIV,{class:'box01 w420'})
+              .append($(this.TAG.DIV,{class:'box01_title text_b',text:'平均'}))
+              .append($avgInfo)
+              .appendTo(this.$content);
+            
+              this.setScoreAvgChart(dif,$avgInfo.get(0));
+            
+            /*
+            DIV.block_information
+                DIV.block_information_date
+                    SPAN.block_information_icon > IMG
+                DIV.block_information_title > A
+            */
+        }
+        aggregate(){
+            const difIdArr = [0,1,2,3];
+            const aggData = {
+                all:{},
+                genre:{},
+                dif:{},
+            };
+
+            
+            Object.keys(m.difList).forEach(difId=>{
+                const genre = {};
+                aggData.dif[difId] = {genre:genre}
+                m.genreIdSort.forEach(genreId=>{
+                    genre[genreId]={musicCount:0,score:0,nonPlay:0,playCountArr:[]};
+                });
+            });
+
+            d.musicDetailList.forEach(musicDetail=>{
+                const genreId = musicDetail.genre;
+                difIdArr.forEach(difId=>{
+                    const musicDetailDif = musicDetail.dif[difId];
+                    const aggDataDifGenre = aggData.dif[difId][genreId];
+                    aggDataDifGenre.musicCount++;
+
+                    if(p.isNull(musicDetailDif)){
+                        aggDataDifGenre.nonPlay++;
+                    }else{
+                        aggDataDifGenre.score += musicDetailDif.score;
+                        aggDataDifGenre.playCountArr.push(musicDetailDif.playCount);
+                    }
+                });
+            });
+
+            d.WEMusicDetailList.forEach(musicDetail=>{
+                
+            });
+        }
+        setScoreAvgChart(dif,el){
             const genreCount = {99:0};
             const genreScore = {99:0};
             const genreNonplay = {99:0};
@@ -64,38 +130,61 @@ _EXPORT = (d,{m,p})=>{
                 }
             });
 
-            const $avgInfo = $(this.TAG.DIV,{class:'block_information'});
-            $avgInfo.append($(this.TAG.DIV,{text:'平均 (未プレイ除外平均)'}));
-            m.genreIdSort.forEach(genreId=>{
-                if(p.isNull(genreCount[genreId])) return;
+            const dataArray = m.genreIdSort.reduce((dataArray,genreId)=>{
+                if(p.isNull(genreCount[genreId])) return dataArray;
                 const score = genreScore[genreId];
-                $avgInfo.append($(this.TAG.DIV,{text:m.genreList[genreId]}));
+                dataArray.push([
+                    shortGenreName[genreId],
+                    Math.floor(score/genreCount[genreId]),
+                    Math.floor(score/(genreCount[genreId] - genreNonplay[genreId])),
+                ]);
+                return dataArray;
+            },[["Genre", "全平均","プレイ済平均" ]]);
 
-                if(score === 0){
-                    $avgInfo.append($(this.TAG.DIV,{text:`0 (0)`}));
-                }else{
-                    $avgInfo.append($(this.TAG.DIV,{
-                        text:`  ${Math.floor(score/genreCount[genreId]).toLocaleString('ja')} (${Math.floor(score/(genreCount[genreId] - genreNonplay[genreId])).toLocaleString('ja')})`
-                    }));
+            const data = google.visualization.arrayToDataTable(dataArray);
+            const view = new google.visualization.DataView(data);
+            view.setColumns([
+                0,
+                1,
+                {calc:"stringify",sourceColumn:1,type:"string",role:"annotation"},
+                2,
+                {calc:"stringify",sourceColumn:2,type:"string",role:"annotation"},
+            ]);
+
+            const options = {
+                title: 'スコア平均',
+                width:'100%',
+                height:500,
+                hAxis: {
+                    format: 'decimal',
+                    minValue: 0,
+                    maxValue: 1010000,
+                    ticks:[0,1010000],
+                    baselineColor: 'none',
+                },
+                vAxis:{
+                    textPosition: 'out',
+                },
+                legend:{
+                    position: 'top',
+                    alignment:'center',
+                },
+                annotations:{
+                    //style:'line',
                 }
-                
-            });
-
-            const $box1 = $(this.TAG.DIV,{class:'box01 w420'})
-              .append($(this.TAG.DIV,{class:'box01_title text_b',text:'平均'}))
-              .append($avgInfo)
-              .appendTo(this.$content);
-
-            /*
-            DIV.block_information
-                DIV.block_information_date
-                    SPAN.block_information_icon > IMG
-                DIV.block_information_title > A
-            */
+            };
+            var chart = new google.visualization.BarChart(el);
+            chart.draw(view, options);
         }
     }
 
-    const view = new viewClass();
-    view.clear();
-    view.changeDif(m.difIdList.expart);
+    $.getScript('//www.gstatic.com/charts/loader.js')
+    .then(()=>{
+        google.charts.load('current', {'packages':['corechart']});
+        google.charts.setOnLoadCallback(()=>{
+            const view = new viewClass();
+            view.clear();
+            view.changeDif(m.difIdList.expart);
+        });
+    });
 };
