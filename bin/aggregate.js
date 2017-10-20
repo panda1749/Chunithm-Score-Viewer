@@ -183,5 +183,3 @@ _EXPORT = (d,{m,p})=>{
         });
     });
 };
-
-$.getScript('//raw.githack.com/panda1749/ChunithmScoreTool/master/bin/chu2.js');
