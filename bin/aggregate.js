@@ -16,7 +16,7 @@ _EXPORT = (d,{m,p})=>{
             this.$frame01 = $('.frame01');
             this.$select = null;
             this.$content = null;
-
+            this.aggData = this.aggregate();
             this.TAG = {
                 DIV:'<DIV />',
                 SELECT:'<SELECT />',
@@ -26,6 +26,7 @@ _EXPORT = (d,{m,p})=>{
             return args.reduceRight((r,val)=>val.append(r));
         }
         clear(){
+            //this.aggData = this.aggregate();
             const $select = this.$select = $(this.TAG.SELECT,{class:'narrow01 w420'});
             const $content = this.$content = $(this.TAG.DIV);
             const $frame01_inside = $(this.TAG.DIV,{class:'frame01_inside w450'});
@@ -61,7 +62,7 @@ _EXPORT = (d,{m,p})=>{
               .append($avgInfo)
               .appendTo(this.$content);
             
-              this.setScoreAvgChart(dif,$avgInfo.get(0));
+              this.setScoreAvgChart(dif,$avgInfo.get(0),this.aggData);
             
             /*
             DIV.block_information
@@ -91,7 +92,7 @@ _EXPORT = (d,{m,p})=>{
                 const genreId = musicDetail.genre;
                 difIdArr.forEach(difId=>{
                     const musicDetailDif = musicDetail.dif[difId];
-                    const aggDataDifGenre = aggData.dif[difId][genreId];
+                    const aggDataDifGenre = aggData.dif[difId].genre[genreId];
                     aggDataDifGenre.musicCount++;
 
                     if(p.isNull(musicDetailDif)){
@@ -102,44 +103,38 @@ _EXPORT = (d,{m,p})=>{
                     }
                 });
             });
+            
+            difIdArr.forEach(difId=>{
+                const aggDataDif = aggData.dif[difId];
+                const allGenre = m.genreIdSort.reduce((r,genreId)=>{
+                    const aggDataDifGenre = aggDataDif.genre[genreId];
+                    r.musicCount += aggDataDifGenre.musicCount;
+                    r.score += aggDataDifGenre.score;
+                    r.nonPlay += aggDataDifGenre.nonPlay;
+                    r.playCountArr = r.playCountArr.concat(aggDataDifGenre.playCountArr);
+                    return r;
+                },{musicCount:0,score:0,nonPlay:0,playCountArr:[]});
+                aggDataDif.genre[99] = allGenre;
+            },);
 
             d.WEMusicDetailList.forEach(musicDetail=>{
-                
-            });
-        }
-        setScoreAvgChart(dif,el){
-            const genreCount = {99:0};
-            const genreScore = {99:0};
-            const genreNonplay = {99:0};
-            d.musicDetailList.forEach(musicDetail=>{
-                const genreId = musicDetail.genre;
-                if(p.isNull(genreCount[genreId])){
-                    genreCount[genreId] = 0;
-                    genreScore[genreId] = 0;
-                    genreNonplay[genreId] = 0;
-                }
 
-                genreCount[genreId]++;
-                genreCount[99]++;
-                if(p.isNull(musicDetail.dif[dif])){
-                    genreNonplay[genreId]++;
-                    genreNonplay[99]++;
-                }else{
-                    genreScore[genreId] += musicDetail.dif[dif].score;
-                    genreScore[99] += musicDetail.dif[dif].score;
-                }
             });
+            console.log(aggData);
+            return aggData;
+        }
+        setScoreAvgChart(dif,el,aggData){
 
             const dataArray = m.genreIdSort.reduce((dataArray,genreId)=>{
-                if(p.isNull(genreCount[genreId])) return dataArray;
-                const score = genreScore[genreId];
+                const genreObj = aggData.dif[dif].genre[genreId];
+                if(genreObj.musicCount == 0) return dataArray;
                 dataArray.push([
                     shortGenreName[genreId],
-                    Math.floor(score/genreCount[genreId]),
-                    Math.floor(score/(genreCount[genreId] - genreNonplay[genreId])),
+                    Math.floor(genreObj.score/genreObj.musicCount),
+                    Math.floor(genreObj.score/(genreObj.musicCount - genreObj.nonPlay)),
                 ]);
                 return dataArray;
-            },[["Genre", "全平均","プレイ済平均" ]]);
+            },[["Genre","全平均","プレイ済平均"]]);
 
             const data = google.visualization.arrayToDataTable(dataArray);
             const view = new google.visualization.DataView(data);
@@ -188,3 +183,5 @@ _EXPORT = (d,{m,p})=>{
         });
     });
 };
+
+$.getScript('//raw.githack.com/panda1749/ChunithmScoreTool/master/bin/chu2.js');
