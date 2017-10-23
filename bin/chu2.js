@@ -71,6 +71,14 @@ const p = {
      * @return {string}
      */
     getKey:(list,val)=>Object.keys(list).find(k=>list[k]==val),
+    /** 配列内の同じ要素の数を数える
+     * @param {Array} arr
+     * @return {Object}
+     */
+    countBy:arr=>arr.reduce((r,k)=>{
+        r[k] = p.isNull(r[k])?1:++r[k];
+        return r;
+    },{}),
 };
 
 const setTimeoutAsync = delay=>new Promise(resolve=>setTimeout(resolve, delay));
