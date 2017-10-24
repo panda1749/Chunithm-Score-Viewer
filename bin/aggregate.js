@@ -20,12 +20,31 @@ _EXPORT = (d,{m,p})=>{
         4:'WE',
     }
 
+    const TAG = {
+        DIV:'<DIV />',
+        SELECT:'<SELECT />',
+    }
+
     const chartClass = class {
         constructor(d){
             this.aggData = this.aggregate(d);
 
         }
         aggregate(d){
+            const getInitData = ()=>{
+                return {
+                    musicCount:0,
+                    score:0,
+                    nonPlay:0,
+                    playCount:0,
+                    playCountArr:[],
+                    lastPlayDateArr:[],
+                    rankArr:[],
+                    fcajArr:[],
+                    clearArr:[],
+                    chainArr:[],
+                };
+            };
             const difIdArr = [0,1,2,3];
             const aggData = {
                 all:{},
@@ -38,14 +57,7 @@ _EXPORT = (d,{m,p})=>{
                 const genre = {};
                 aggData.dif[difId] = {genre:genre}
                 m.genreIdSort.forEach(genreId=>{
-                    genre[genreId]={
-                        musicCount:0,
-                        score:0,
-                        nonPlay:0,
-                        playCount:0,
-                        playCountArr:[],
-                        lastPlayDateArr:[]
-                    };
+                    genre[genreId] = getInitData();
                 });
             });
 
@@ -67,6 +79,11 @@ _EXPORT = (d,{m,p})=>{
 
                         const [lastPlayDate,] = musicDetailDif.date.split(' ');
                         aggDataDifGenre.lastPlayDateArr.push(lastPlayDate);
+
+                        aggDataDifGenre.rankArr.push(musicDetailDif.rank);
+                        aggDataDifGenre.fcajArr.push(musicDetailDif.fcaj);
+                        aggDataDifGenre.clearArr.push(musicDetailDif.clear);
+                        aggDataDifGenre.chainArr.push(musicDetailDif.chain);
                     }
                 });
             });
@@ -79,13 +96,20 @@ _EXPORT = (d,{m,p})=>{
                     r.nonPlay++;
                 }else{
                     r.score += musicDetailDif.score;
+
                     r.playCount += musicDetailDif.playCount;
                     r.playCountArr.push(musicDetailDif.playCount);
+
                     const [lastPlayDate,] = musicDetailDif.date.split(' ');
                     r.lastPlayDateArr.push(lastPlayDate);
+
+                    r.rankArr.push(musicDetailDif.rank);
+                    r.fcajArr.push(musicDetailDif.fcaj);
+                    r.clearArr.push(musicDetailDif.clear);
+                    r.chainArr.push(musicDetailDif.chain);
                 }
                 return r;
-            },{musicCount:0,score:0,nonPlay:0,playCount:0,playCountArr:[],lastPlayDateArr:[]});
+            },getInitData());
             aggData.dif[WeDifId] = {genre:{99:aggDataWE}};
             
             //------------------------------------------------------------------------------
@@ -94,15 +118,24 @@ _EXPORT = (d,{m,p})=>{
                 const allGenre = m.genreIdSort.reduce((r,genreId)=>{
                     const aggDataDifGenre = aggDataDif.genre[genreId];
                     r.musicCount += aggDataDifGenre.musicCount;
-                    r.score += aggDataDifGenre.score;
                     r.nonPlay += aggDataDifGenre.nonPlay;
+
+                    r.score += aggDataDifGenre.score;
+
                     r.playCount += aggDataDifGenre.playCount;
                     r.playCountArr = [...r.playCountArr,...aggDataDifGenre.playCountArr];
+
                     r.lastPlayDateArr = [...r.lastPlayDateArr,...aggDataDifGenre.lastPlayDateArr];
 
-                    aggDataDifGenre.lastPlayDateCountArr = p.countBy(aggDataDifGenre.lastPlayDateArr);
+                    r.rankArr = [...r.rankArr,...aggDataDifGenre.rankArr];
+                    r.fcajArr = [...r.fcajArr,...aggDataDifGenre.fcajArr];
+                    r.clearArr = [...r.clearArr,...aggDataDifGenre.clearArr];
+                    r.chainArr = [...r.chainArr,...aggDataDifGenre.chainArr];
+
+                    aggDataDifGenre.lastPlayDateCount = p.countBy(aggDataDifGenre.lastPlayDateArr);
+                    aggDataDifGenre.chainCount = p.countBy(aggDataDifGenre.chainArr);
                     return r;
-                },{musicCount:0,score:0,nonPlay:0,playCount:0,playCountArr:[],lastPlayDateArr:[]});
+                },getInitData());
                 aggDataDif.genre[99] = allGenre;
             },);
 
@@ -111,18 +144,23 @@ _EXPORT = (d,{m,p})=>{
                 const aggDataDifAllGenre = aggData.dif[difId].genre[99];
                 r.lastPlayDateArr = [...r.lastPlayDateArr,...aggDataDifAllGenre.lastPlayDateArr];
 
-                aggDataDifAllGenre.lastPlayDateCountArr = p.countBy(aggDataDifAllGenre.lastPlayDateArr);
+                aggDataDifAllGenre.lastPlayDateCount = p.countBy(aggDataDifAllGenre.lastPlayDateArr);
+
+                aggDataDifAllGenre.rankCount = p.countBy(aggDataDifAllGenre.rankArr);
+                aggDataDifAllGenre.fcajCount = p.countBy(aggDataDifAllGenre.fcajArr);
+                aggDataDifAllGenre.clearCount = p.countBy(aggDataDifAllGenre.clearArr);
+                aggDataDifAllGenre.chainCount = p.countBy(aggDataDifAllGenre.chainArr);
                 return r;
             },{lastPlayDateArr:[]});
-            aggALL.lastPlayDateCountArr = p.countBy(aggALL.lastPlayDateArr);
+            aggALL.lastPlayDateCount = p.countBy(aggALL.lastPlayDateArr);
             aggData.all = aggALL;
 
             console.log(aggData);
             return aggData;
         }
         _getLastPlayData(){
-            return Object.keys(this.aggData.all.lastPlayDateCountArr).reduce((r,k)=>{
-                r.push([new Date(k),this.aggData.all.lastPlayDateCountArr[k]]);
+            return Object.keys(this.aggData.all.lastPlayDateCount).reduce((r,k)=>{
+                r.push([new Date(k),this.aggData.all.lastPlayDateCount[k]]);
                 return r;
             },[]);
         }
@@ -206,26 +244,77 @@ _EXPORT = (d,{m,p})=>{
             ]);
 
             const options = {
-                title: 'スコア平均',
+                title:'スコア平均',
                 width:'100%',
                 height:500,
-                hAxis: {
+                hAxis:{
                     format: 'decimal',
                     minValue: 0,
                     maxValue: 1010000,
                     ticks:[0,1010000],
-                    baselineColor: 'none',
+                    baselineColor:'none',
                 },
-                vAxis:{
-                    textPosition: 'out',
-                },
+                vAxis:{textPosition:'out'},
                 legend:{
-                    position: 'top',
-                    alignment:'center',
+                    position:'top',
                 }
             };
             var chart = new google.visualization.BarChart(el);
             chart.draw(view, options);
+        }
+        _getRankData(dif){
+
+        }
+        setRankRatio(dif,el){
+
+        }
+        _getClearData(dif){
+
+        }
+        _getFcajData(dif){
+
+        }
+        _getChainData(dif){
+            return m.genreIdSort.reduce((r,genreId)=>{
+                const aggGenre = this.aggData.dif[dif].genre[genreId];
+                //[ジャンル名､未プレイ､未Chain､chain2､chain]
+                const row = [shortGenreName[genreId],aggGenre.nonPlay];
+                [0,1,2].forEach(chainId=>{
+                    //const count = aggGenre.chainCount[chainId];
+                    row.push(p.isNull(aggGenre.chainCount[chainId])?0:aggGenre.chainCount[chainId]);
+                });
+                r.push(row);
+                return r;
+            },[]);
+        }
+        setChainRatio(dif,el){
+            const data = google.visualization.arrayToDataTable([
+                ['ジャンル','未プレイ','未Chain','Chain2','Chain'],
+                ...this._getChainData(dif)
+            ]);
+        
+            const options = {
+                  title:'フルチェ率',
+                width:'100%',
+                height:400,
+                legend:{position:'top',maxLines:3},
+                bar: { groupWidth:'75%'},
+                isStacked:'percent',
+              };
+              var chart = new google.visualization.BarChart(el);
+              chart.draw(data, options);
+        }
+        setDifChart(dif,el){
+            const $el = $(el);
+            const $scoreAvg = $(TAG.DIV);
+            const $chainRatio = $(TAG.DIV);
+
+            $el.append(
+                $scoreAvg,
+                $chainRatio
+            );
+            this.setScoreAvg(dif,$scoreAvg.get(0));
+            this.setChainRatio(dif,$chainRatio.get(0));
         }
     };
 
@@ -235,18 +324,14 @@ _EXPORT = (d,{m,p})=>{
             this.$frame01 = $('.frame01');
             this.$select = null;
             this.$content = null;
-            this.TAG = {
-                DIV:'<DIV />',
-                SELECT:'<SELECT />',
-            }
         }
         $appendNest(...args){
             return args.reduceRight((r,val)=>val.append(r));
         }
         clear(){
             //this.aggData = this.aggregate();
-            const $select = this.$select = $(this.TAG.SELECT,{class:'narrow01 w420'});
-            const $frame01_inside = $(this.TAG.DIV,{class:'frame01_inside w450'});
+            const $select = this.$select = $(TAG.SELECT,{class:'narrow01 w420'});
+            const $frame01_inside = $(TAG.DIV,{class:'frame01_inside w450'});
 
             Object.keys(m.difList).forEach(idx=>{
                 if(idx==4) return;
@@ -257,12 +342,12 @@ _EXPORT = (d,{m,p})=>{
             });
             
             const $df = $(new DocumentFragment());
-            const $content = this.$content = $(this.TAG.DIV);
-            const $contentAllDif = $(this.TAG.DIV);
+            const $content = this.$content = $(TAG.DIV);
+            const $contentAllDif = $(TAG.DIV);
             $df.append(
                 $contentAllDif,
                 $('HR',{class:"line_dot_black w420"}),
-                $(this.TAG.DIV,{class:'mt_20 mb_20'}).append($select),
+                $(TAG.DIV,{class:'mt_20 mb_20'}).append($select),
                 $content
             )
             
@@ -277,11 +362,11 @@ _EXPORT = (d,{m,p})=>{
             this.setAllDifChart($contentAllDif);
         }
         setAllDifChart($el){
-            const $playRaito = $(this.TAG.DIV);
+            const $playRaito = $(TAG.DIV);
             $el.append($playRaito);
             this.chart.setDifPlayRatio($playRaito.get(0));
 
-            const $lastPlayCalendar = $(this.TAG.DIV,{style:"background-color:white;"});
+            const $lastPlayCalendar = $(TAG.DIV,{style:"background-color:white;"});
             $el.append($lastPlayCalendar);
             this.chart.setLastPlayCalendar($lastPlayCalendar.get(0));
         }
@@ -292,14 +377,15 @@ _EXPORT = (d,{m,p})=>{
         changeDifView(dif){
             this.$content.empty();
 
-            const $avgInfo = $(this.TAG.DIV/*,{class:'block_information'}*/);
-            $(this.TAG.DIV,{class:'box01 w420'})
-              .append($(this.TAG.DIV,{class:'box01_title text_b',text:'平均'}))
+            const $avgInfo = $(TAG.DIV/*,{class:'block_information'}*/);
+            
+            $(TAG.DIV,{class:'box01 w420'})
+              .append($(TAG.DIV,{class:'box01_title text_b',text:m.difList[dif].toUpperCase()}))
               .append($avgInfo)
               .appendTo(this.$content);
             
-              this.chart.setScoreAvg(dif,$avgInfo.get(0));
-            
+              this.chart.setDifChart(dif,$avgInfo.get(0));
+
             /*
             DIV.block_information
                 DIV.block_information_date
