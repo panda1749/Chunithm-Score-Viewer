@@ -133,7 +133,12 @@ _EXPORT = (d,{m,p})=>{
                     r.chainArr = [...r.chainArr,...aggDataDifGenre.chainArr];
 
                     aggDataDifGenre.lastPlayDateCount = p.countBy(aggDataDifGenre.lastPlayDateArr);
+
+                    aggDataDifGenre.rankCount = p.countBy(aggDataDifGenre.rankArr);
+                    aggDataDifGenre.fcajCount = p.countBy(aggDataDifGenre.fcajArr);
+                    aggDataDifGenre.clearCount = p.countBy(aggDataDifGenre.clearArr);
                     aggDataDifGenre.chainCount = p.countBy(aggDataDifGenre.chainArr);
+
                     return r;
                 },getInitData());
                 aggDataDif.genre[99] = allGenre;
@@ -262,34 +267,74 @@ _EXPORT = (d,{m,p})=>{
             var chart = new google.visualization.BarChart(el);
             chart.draw(view, options);
         }
-        _getRankData(dif){
-
-        }
-        setRankRatio(dif,el){
-
-        }
-        _getClearData(dif){
-
-        }
-        _getFcajData(dif){
-
-        }
-        _getChainData(dif){
+        _getPercentBarData(dif,targetName,targetIdArr){
             return m.genreIdSort.reduce((r,genreId)=>{
                 const aggGenre = this.aggData.dif[dif].genre[genreId];
-                //[ジャンル名､未プレイ､未Chain､chain2､chain]
-                const row = [shortGenreName[genreId],aggGenre.nonPlay];
-                [0,1,2].forEach(chainId=>{
-                    //const count = aggGenre.chainCount[chainId];
-                    row.push(p.isNull(aggGenre.chainCount[chainId])?0:aggGenre.chainCount[chainId]);
-                });
-                r.push(row);
+                
+                const row = targetIdArr.reduce((r,chainId)=>{
+                    r.push(p.isNull(aggGenre[targetName][chainId])?0:aggGenre[targetName][chainId]);
+                    return r;
+                },[]);
+                r.push([shortGenreName[genreId],...row,aggGenre.nonPlay]);
                 return r;
             },[]);
         }
+        _setPercentBar(el,title,data){
+            const dataTable = google.visualization.arrayToDataTable(data);
+        
+            const options = {
+                  title:title,
+                width:'100%',
+                height:400,
+                legend:{position:'top',maxLines:3},
+                bar: { groupWidth:'75%'},
+                isStacked:'percent',
+              };
+              var chart = new google.visualization.BarChart(el);
+              chart.draw(dataTable, options);
+        }
+        setClearRatio(dif,el){
+            this._setPercentBar(
+                el,
+                'クリア率',
+                [
+                    ['ジャンル','クリア','未クリア','未プレイ'],
+                    ...this._getPercentBarData(dif,'clearCount',['true','false'])
+                ]
+            );
+        }
+        setFcajRatio(dif,el){
+            this._setPercentBar(
+                el,
+                'FC･AJ率',
+                [
+                    ['ジャンル','AJ','FC','未FC','未プレイ'],
+                    ...this._getPercentBarData(dif,'fcajCount',[2,1,0])
+                ]
+            );
+        }
+        setRankRatio(dif,el){
+            this._setPercentBar(
+                el,
+                'ランク率',
+                [
+                    ['ジャンル',...Object.values(m.rankList).reverse(),'未プレイ'],
+                    ...this._getPercentBarData(dif,'rankCount',Object.keys(m.rankList).reverse())
+                ]
+            );
+        }
         setChainRatio(dif,el){
+            this._setPercentBar(
+                el,
+                'フルチェ率',
+                [
+                    ['ジャンル','Chain','Chain2','未Chain','未プレイ'],
+                    ...this._getPercentBarData(dif,'chainCount',[2,1,0])
+                ]
+            );
+            /*
             const data = google.visualization.arrayToDataTable([
-                ['ジャンル','未プレイ','未Chain','Chain2','Chain'],
+                ['ジャンル','Chain','Chain2','未Chain','未プレイ'],
                 ...this._getChainData(dif)
             ]);
         
@@ -303,17 +348,27 @@ _EXPORT = (d,{m,p})=>{
               };
               var chart = new google.visualization.BarChart(el);
               chart.draw(data, options);
+              */
         }
         setDifChart(dif,el){
             const $el = $(el);
             const $scoreAvg = $(TAG.DIV);
+            const $clearRatio = $(TAG.DIV);
+            const $fcajRatio = $(TAG.DIV);
+            const $rankRatio = $(TAG.DIV);
             const $chainRatio = $(TAG.DIV);
 
             $el.append(
                 $scoreAvg,
-                $chainRatio
+                $clearRatio,
+                $fcajRatio,
+                $rankRatio,
+                $chainRatio,
             );
             this.setScoreAvg(dif,$scoreAvg.get(0));
+            this.setClearRatio(dif,$clearRatio.get(0));
+            this.setFcajRatio(dif,$fcajRatio.get(0));
+            this.setRankRatio(dif,$rankRatio.get(0));
             this.setChainRatio(dif,$chainRatio.get(0));
         }
     };
@@ -405,3 +460,6 @@ _EXPORT = (d,{m,p})=>{
         });
     });
 };
+
+//debug
+$.getScript('//raw.githack.com/panda1749/ChunithmScoreTool/master/bin/chu2.js');
