@@ -460,6 +460,3 @@ _EXPORT = (d,{m,p})=>{
         });
     });
 };
-
-//debug
-$.getScript('//raw.githack.com/panda1749/ChunithmScoreTool/master/bin/chu2.js');
