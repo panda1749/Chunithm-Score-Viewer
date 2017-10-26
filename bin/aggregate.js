@@ -249,7 +249,7 @@ _EXPORT = (d,{m,p})=>{
             ]);
 
             const options = {
-                title:'スコア平均',
+                title:`スコア平均(${shortDifName[dif]})`,
                 width:'100%',
                 height:500,
                 hAxis:{
@@ -279,11 +279,11 @@ _EXPORT = (d,{m,p})=>{
                 return r;
             },[]);
         }
-        _setPercentBar(el,title,data){
+        _setPercentBar(dif,el,title,data){
             const dataTable = google.visualization.arrayToDataTable(data);
         
             const options = {
-                  title:title,
+                  title:`${title}(${shortDifName[dif]})`,
                 width:'100%',
                 height:400,
                 legend:{position:'top',maxLines:3},
@@ -295,7 +295,7 @@ _EXPORT = (d,{m,p})=>{
         }
         setClearRatio(dif,el){
             this._setPercentBar(
-                el,
+                dif,el,
                 'クリア率',
                 [
                     ['ジャンル','クリア','未クリア','未プレイ'],
@@ -305,7 +305,7 @@ _EXPORT = (d,{m,p})=>{
         }
         setFcajRatio(dif,el){
             this._setPercentBar(
-                el,
+                dif,el,
                 'FC･AJ率',
                 [
                     ['ジャンル','AJ','FC','未FC','未プレイ'],
@@ -315,7 +315,7 @@ _EXPORT = (d,{m,p})=>{
         }
         setRankRatio(dif,el){
             this._setPercentBar(
-                el,
+                dif,el,
                 'ランク率',
                 [
                     ['ジャンル',...Object.values(m.rankList).reverse(),'未プレイ'],
@@ -325,30 +325,13 @@ _EXPORT = (d,{m,p})=>{
         }
         setChainRatio(dif,el){
             this._setPercentBar(
-                el,
+                dif,el,
                 'フルチェ率',
                 [
                     ['ジャンル','Chain','Chain2','未Chain','未プレイ'],
                     ...this._getPercentBarData(dif,'chainCount',[2,1,0])
                 ]
             );
-            /*
-            const data = google.visualization.arrayToDataTable([
-                ['ジャンル','Chain','Chain2','未Chain','未プレイ'],
-                ...this._getChainData(dif)
-            ]);
-        
-            const options = {
-                  title:'フルチェ率',
-                width:'100%',
-                height:400,
-                legend:{position:'top',maxLines:3},
-                bar: { groupWidth:'75%'},
-                isStacked:'percent',
-              };
-              var chart = new google.visualization.BarChart(el);
-              chart.draw(data, options);
-              */
         }
         setDifChart(dif,el){
             const $el = $(el);
@@ -391,7 +374,7 @@ _EXPORT = (d,{m,p})=>{
             Object.keys(m.difList).forEach(idx=>{
                 if(idx==4) return;
                 $select.append(
-                    $(`<OPTION value="${idx}">${m.difList[idx]}</OPTION>`,
+                    $(`<OPTION value="${idx}">${m.difList[idx].toUpperCase()}</OPTION>`,
                     {class:'narrow01 w420 option'})
                 );
             });
